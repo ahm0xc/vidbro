@@ -36,12 +36,29 @@ export async function generateCommand() {
     text: "Getting musics...",
     color: "yellow",
   }).start();
+
   const musics = await getMusic();
+
   musicSpinner.success();
   musicSpinner.stop();
 
   if (musics.length === 0) {
     console.log("No musics found. Please add musics to the musics directory.");
+    return;
+  }
+
+  const ctaSpinner = yoctoSpinner({
+    text: "Getting CTAs...",
+    color: "yellow",
+  }).start();
+
+  const ctas = await getCTAs();
+
+  ctaSpinner.success();
+  ctaSpinner.stop();
+
+  if (ctas.length === 0) {
+    console.log("No CTAs found. Please add CTAs to the CTAs directory.");
     return;
   }
 
@@ -74,7 +91,13 @@ export async function generateCommand() {
     pageSize: 10,
   });
 
-  // TODO: add cta feature
+  const selectedCTA = await select({
+    message: "Select CTA:",
+    choices: ctas.map((c) => ({
+      name: c.name,
+      value: c.path,
+    })),
+  });
 
   const extraImages = images.length % Number(slideCountInEachVideo);
   const imagesToUse = images.slice(0, images.length - extraImages);
@@ -100,6 +123,7 @@ export async function generateCommand() {
       i * Number(slideCountInEachVideo),
       (i + 1) * Number(slideCountInEachVideo)
     );
+    const slideshowPath = path.join(appConfig.tempDir, `${nanoid()}.mp4`);
     const outputPath = path.join(appConfig.exportsDir, `${nanoid()}.mp4`);
 
     generationSpinner.text = `Generated ${i + 1}/${totalVideos} videos`;
@@ -109,9 +133,20 @@ export async function generateCommand() {
       duration: Number(videoDuration),
       slideCount: Number(slideCountInEachVideo),
       text: textsOnVid[i]!,
-      outputPath,
+      outputPath: slideshowPath,
       fontSize: configJson.fontSize,
     });
+
+    const { concatVideoWithCTA } = await import("~/lib/utils");
+    await concatVideoWithCTA({
+      baseVideoPath: slideshowPath,
+      ctaPath: selectedCTA,
+      outputPath,
+    });
+
+    try {
+      fs.rmSync(slideshowPath);
+    } catch {}
   }
 
   generationSpinner.success();
@@ -175,5 +210,14 @@ async function getMusic() {
   return musicPaths.map((p) => ({
     name: path.basename(p),
     path: path.join(appConfig.musicsDir, p),
+  }));
+}
+
+async function getCTAs() {
+  const ctaPaths = fs.readdirSync(appConfig.ctaDir);
+
+  return ctaPaths.map((p) => ({
+    name: path.basename(p),
+    path: path.join(appConfig.ctaDir, p),
   }));
 }

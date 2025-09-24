@@ -220,3 +220,46 @@ export async function generateVideo({
       .save(resolvedOutput);
   });
 }
+
+interface ConcatWithCTAOptions {
+  baseVideoPath: string;
+  ctaPath: string;
+  outputPath: string;
+}
+
+export async function concatVideoWithCTA({
+  baseVideoPath,
+  ctaPath,
+  outputPath,
+}: ConcatWithCTAOptions): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const command = ffmpeg()
+      .input(path.resolve(baseVideoPath))
+      .input(path.resolve(ctaPath))
+      .complexFilter(
+        [
+          "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]",
+          "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]",
+          "[0:a]aformat=channel_layouts=stereo,aresample=async=1[a0]",
+          "[1:a]aformat=channel_layouts=stereo,aresample=async=1[a1]",
+          "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]",
+        ],
+        ["v", "a"]
+      )
+      .outputOptions([
+        "-map [v]",
+        "-map [a]",
+        "-c:v libx264",
+        "-c:a aac",
+        "-pix_fmt yuv420p",
+        "-r 30",
+      ])
+      .on("end", () => {
+        resolve(path.resolve(outputPath));
+      })
+      .on("error", (err) => {
+        reject(err);
+      })
+      .save(path.resolve(outputPath));
+  });
+}
