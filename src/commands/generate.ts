@@ -125,12 +125,11 @@ export async function generateCommand() {
     default: false,
   });
 
-  const deleteUsedImagesSpinner = yoctoSpinner({
-    text: "Deleting used images...",
-    color: "red",
-  }).start();
-
   if (wantToDeleteUsedImages) {
+    const deleteUsedImagesSpinner = yoctoSpinner({
+      text: "Deleting used images...",
+      color: "red",
+    }).start();
     for (const image of images) {
       fs.rmSync(image.path);
     }
@@ -138,8 +137,6 @@ export async function generateCommand() {
     deleteUsedImagesSpinner.stop();
     console.log(pc.green("Used images deleted successfully."));
   } else {
-    deleteUsedImagesSpinner.success();
-    deleteUsedImagesSpinner.stop();
     console.log(pc.green("Used images not deleted."));
   }
 }
