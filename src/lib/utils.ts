@@ -176,7 +176,7 @@ export async function generateVideo({
               "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
             ];
 
-      const overrideFont = process.env.DINGO_FONTFILE;
+      const overrideFont = process.env.FONTFILE;
 
       const fontfile = [overrideFont, ...candidateFonts].find((p) => {
         try {
@@ -200,7 +200,7 @@ export async function generateVideo({
       command.videoFilters(drawtext);
     }
 
-    if (process.env.DINGO_DEBUG === "1") {
+    if (process.env.DEBUG === "1") {
       command.on("stderr", (line: string) => {
         try {
           console.error(line);

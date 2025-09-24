@@ -1,7 +1,7 @@
 {
-  "name": "dingo",
+  "name": "dymon",
   "description": "A CLI tool for creating videos",
-  "displayName": "Dingo",
+  "displayName": "Dymon",
   "module": "src/index.ts",
   "bin": "dist/index.js",
   "type": "module",
