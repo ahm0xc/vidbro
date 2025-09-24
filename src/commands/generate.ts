@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
-import { input, select } from "@inquirer/prompts";
+import { input, select, confirm } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
+import pc from "picocolors";
 
 import pkg from "~/../package.json";
 
@@ -10,6 +11,7 @@ import { appConfig, generateVideo, resizeImage } from "~/lib/utils";
 
 export async function generateCommand() {
   const config = fs.readFileSync(appConfig.configFile, "utf-8");
+
   if (!config) {
     console.log(`No config found. Please run \`${pkg.name} init\` first.`);
     return;
@@ -25,6 +27,11 @@ export async function generateCommand() {
   imageSpinner.success();
   imageSpinner.stop();
 
+  if (images.length === 0) {
+    console.log("No images found. Please add images to the images directory.");
+    return;
+  }
+
   const musicSpinner = yoctoSpinner({
     text: "Getting musics...",
     color: "yellow",
@@ -32,6 +39,11 @@ export async function generateCommand() {
   const musics = await getMusic();
   musicSpinner.success();
   musicSpinner.stop();
+
+  if (musics.length === 0) {
+    console.log("No musics found. Please add musics to the musics directory.");
+    return;
+  }
 
   const videoDuration = await input({
     message: "Video duration (in seconds):",
@@ -62,16 +74,21 @@ export async function generateCommand() {
     pageSize: 10,
   });
 
-  const selectedText = await input({
-    message: "Enter text:",
-    required: true,
-  });
-
   // TODO: add cta feature
 
   const extraImages = images.length % Number(slideCountInEachVideo);
   const imagesToUse = images.slice(0, images.length - extraImages);
   const totalVideos = imagesToUse.length / Number(slideCountInEachVideo);
+
+  const textsOnVid = [];
+
+  for (let i = 0; i < totalVideos; i += 1) {
+    const textOnVid = await input({
+      message: `Enter text on video ${i + 1}:`,
+      required: true,
+    });
+    textsOnVid.push(textOnVid);
+  }
 
   const generationSpinner = yoctoSpinner({
     text: `Generated 0/${totalVideos} videos`,
@@ -84,13 +101,14 @@ export async function generateCommand() {
       (i + 1) * Number(slideCountInEachVideo)
     );
     const outputPath = path.join(appConfig.exportsDir, `${nanoid()}.mp4`);
+
     generationSpinner.text = `Generated ${i + 1}/${totalVideos} videos`;
     await generateVideo({
       imagesPaths: imagesPaths.map((i) => i.path),
       musicPath: selectedMusic,
       duration: Number(videoDuration),
       slideCount: Number(slideCountInEachVideo),
-      text: selectedText,
+      text: textsOnVid[i]!,
       outputPath,
       fontSize: configJson.fontSize,
     });
@@ -99,6 +117,31 @@ export async function generateCommand() {
   generationSpinner.success();
 
   generationSpinner.stop();
+
+  console.log(pc.green("Videos generated successfully."));
+
+  const wantToDeleteUsedImages = await confirm({
+    message: pc.red("Do you want to delete used images?"),
+    default: false,
+  });
+
+  const deleteUsedImagesSpinner = yoctoSpinner({
+    text: "Deleting used images...",
+    color: "red",
+  }).start();
+
+  if (wantToDeleteUsedImages) {
+    for (const image of images) {
+      fs.rmSync(image.path);
+    }
+    deleteUsedImagesSpinner.success();
+    deleteUsedImagesSpinner.stop();
+    console.log(pc.green("Used images deleted successfully."));
+  } else {
+    deleteUsedImagesSpinner.success();
+    deleteUsedImagesSpinner.stop();
+    console.log(pc.green("Used images not deleted."));
+  }
 }
 
 async function getImages() {
