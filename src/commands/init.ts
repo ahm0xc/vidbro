@@ -4,6 +4,14 @@ import path from "node:path";
 import pkg from "~/../package.json";
 import { appConfig } from "~/lib/utils";
 
+const DEFAULT_CONFIG = {
+  fontSize: 20,
+  fontFamily: "Arial",
+  width: 1080,
+  height: 1920,
+  fit: "cover",
+};
+
 export async function initCommand() {
   if (fs.existsSync(appConfig.configFile)) {
     console.log(
@@ -19,7 +27,7 @@ export async function initCommand() {
   if (!fs.existsSync(appConfig.configFile)) {
     fs.writeFileSync(
       appConfig.configFile,
-      JSON.stringify(defaultConfig, null, 2)
+      JSON.stringify(DEFAULT_CONFIG, null, 2)
     );
   }
 
@@ -38,10 +46,6 @@ export async function initCommand() {
 
   fs.writeFileSync(path.join(appConfig.containerDir, "help.txt"), helpTxt);
 }
-
-const defaultConfig = {
-  fontSize: 20,
-};
 
 export const helpTxt = `
 ${pkg.name} is a CLI tool for creating videos.

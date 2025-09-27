@@ -20,7 +20,13 @@ export async function configCommand() {
     default: configJson.fontSize,
   });
 
+  const fontFamily = await input({
+    message: "Font family:",
+    default: configJson.fontFamily,
+  });
+
   configJson.fontSize = fontSize;
+  configJson.fontFamily = fontFamily;
 
   fs.writeFileSync(appConfig.configFile, JSON.stringify(configJson, null, 2));
 

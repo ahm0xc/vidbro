@@ -7,7 +7,7 @@ import pc from "picocolors";
 
 import pkg from "~/../package.json";
 
-import { appConfig, generateVideo, resizeImage } from "~/lib/utils";
+import { appConfig, generateVideo, getConfig, resizeImage } from "~/lib/utils";
 
 export async function generateCommand() {
   const config = fs.readFileSync(appConfig.configFile, "utf-8");
@@ -135,6 +135,7 @@ export async function generateCommand() {
       text: textsOnVid[i]!,
       outputPath: slideshowPath,
       fontSize: configJson.fontSize,
+      fontFamily: configJson.fontFamily,
     });
 
     const { concatVideoWithCTA } = await import("~/lib/utils");
@@ -177,6 +178,9 @@ export async function generateCommand() {
 }
 
 async function getImages() {
+  const config = getConfig();
+  const { width = 1080, height = 1920, fit = "cover" } = config;
+
   const unsafeImagePaths = fs.readdirSync(appConfig.imagesDir);
 
   const safeImagePaths = [];
@@ -187,8 +191,9 @@ async function getImages() {
       await resizeImage({
         inputPath: path.join(appConfig.imagesDir, unsafeImagePath),
         outputPath,
-        width: 1080,
-        height: 1920,
+        width,
+        height,
+        fit,
       });
       safeImagePaths.push(outputPath);
     } catch (error) {

@@ -61,6 +61,16 @@ export function openPath(targetPath: string): Promise<void> {
   });
 }
 
+export function getConfig() {
+  if (!fs.existsSync(appConfig.configFile)) {
+    throw new Error(`No config found. Please run \`${pkg.name} init\` first.`);
+  }
+
+  const config = fs.readFileSync(appConfig.configFile, "utf-8");
+
+  return JSON.parse(config);
+}
+
 export interface ResizeImageOptions {
   inputPath: string;
   outputPath?: string;
@@ -102,6 +112,7 @@ interface GenerateVideoOptions {
   slideCount: number;
   text: string;
   fontSize?: number;
+  fontFamily?: string;
 }
 
 /**
@@ -115,6 +126,7 @@ export async function generateVideo({
   text,
   outputPath,
   fontSize,
+  fontFamily,
 }: GenerateVideoOptions): Promise<string> {
   return new Promise((resolve, reject) => {
     if (imagesPaths.length < slideCount) {
@@ -178,7 +190,41 @@ export async function generateVideo({
 
       const overrideFont = process.env.FONTFILE;
 
-      const fontfile = [overrideFont, ...candidateFonts].find((p) => {
+      const resolvedFromFamily = fontFamily
+        ? (() => {
+            const family = fontFamily;
+            const dirs: string[] =
+              process.platform === "darwin"
+                ? [
+                    "/Library/Fonts",
+                    "/System/Library/Fonts/Supplemental",
+                    path.join(homeDir, "Library/Fonts"),
+                  ]
+                : process.platform === "win32"
+                ? ["C:/Windows/Fonts"]
+                : [
+                    "/usr/share/fonts",
+                    "/usr/local/share/fonts",
+                    path.join(homeDir, ".fonts"),
+                  ];
+            for (const dir of dirs) {
+              try {
+                const entries = fs.readdirSync(dir);
+                const match = entries.find((f) =>
+                  new RegExp(`^${family}.*\.(ttf|ttc|otf)$`, "i").test(f)
+                );
+                if (match) return path.join(dir, match);
+              } catch {}
+            }
+            return undefined;
+          })()
+        : undefined;
+
+      const fontfile = [
+        overrideFont,
+        resolvedFromFamily,
+        ...candidateFonts,
+      ].find((p) => {
         try {
           return !!p && fs.existsSync(p);
         } catch {
@@ -189,7 +235,11 @@ export async function generateVideo({
       const drawtext =
         `drawtext=` +
         `text='${escapeForDrawtext(text.trim())}':` +
-        (fontfile ? `fontfile='${fontfile.replace(/:/g, "\\:")}':` : "") +
+        (fontfile
+          ? `fontfile='${fontfile.replace(/:/g, "\\:")}':`
+          : fontFamily
+          ? `font='${fontFamily.replace(/:/g, "\\:")}':`
+          : "") +
         `fontsize=${fontSize ?? 20}:` +
         `fontcolor=white:` +
         `bordercolor=black:` +
@@ -236,16 +286,13 @@ export async function concatVideoWithCTA({
     const command = ffmpeg()
       .input(path.resolve(baseVideoPath))
       .input(path.resolve(ctaPath))
-      .complexFilter(
-        [
-          "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]",
-          "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]",
-          "[0:a]aformat=channel_layouts=stereo,aresample=async=1[a0]",
-          "[1:a]aformat=channel_layouts=stereo,aresample=async=1[a1]",
-          "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]",
-        ],
-        ["v", "a"]
-      )
+      .complexFilter([
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]",
+        "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]",
+        "[0:a]aformat=channel_layouts=stereo,aresample=async=1[a0]",
+        "[1:a]aformat=channel_layouts=stereo,aresample=async=1[a1]",
+        "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]",
+      ])
       .outputOptions([
         "-map [v]",
         "-map [a]",
